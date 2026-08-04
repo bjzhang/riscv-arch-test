@@ -1,0 +1,194 @@
+# Normative rule to coverpoint mappings for the H privileged suite.
+# Generated from Guide_Doc/H.csv and refined against H_coverage.svh.
+
+normative_rule_definitions:
+  - name: norm:csr:mtval2:reg
+    coverpoint:
+      - H_mcsr_cg/cp_hcsr_access
+      - H_mcsr_cg/cp_hcsrwalk
+      - H_hscsr_cg/cp_hcsr_inaccessible
+      - H_vscsr_cg/cp_hcsr_inaccessible
+      - H_ucsr_cg/cp_hcsr_inaccessible
+      - H_vucsr_cg/cp_hcsr_inaccessible
+
+  - name: norm:csr:mtinst:reg
+    coverpoint:
+      - H_mcsr_cg/cp_hcsr_access
+      - H_mcsr_cg/cp_hcsrwalk
+      - H_hscsr_cg/cp_hcsr_inaccessible
+      - H_vscsr_cg/cp_hcsr_inaccessible
+      - H_ucsr_cg/cp_hcsr_inaccessible
+      - H_vucsr_cg/cp_hcsr_inaccessible
+
+  - name: norm:csr:mtval:h-nrz
+    coverpoint:
+      - H_mcsr_cg/cp_mtvala
+
+  - names:
+      - norm:csr:hstatus:reg
+      - norm:csr:hedeleg:reg
+      - norm:csr:hideleg:reg
+      - norm:csr:hie:reg
+      - norm:csr:htimedelta:reg
+      - norm:csr:hcounteren:reg
+      - norm:csr:hgeie:reg
+      - norm:csr:henvcfg:reg
+      - norm:csr:htval:reg
+      - norm:csr:hip:reg
+      - norm:csr:hvip:reg
+      - norm:csr:htinst:reg
+      - norm:csr:hgatp:reg
+      - norm:csr:hgeip:reg
+    coverpoint:
+      - H_mcsr_cg/cp_hcsr_access
+      - H_mcsr_cg/cp_hcsrwalk
+      - H_hscsr_cg/cp_hcsr_access
+      - H_hscsr_cg/cp_hcsrwalk
+      - H_vscsr_cg/cp_hcsr_virtualinstructionfault
+      - H_ucsr_cg/cp_hcsr_inaccessible
+      - H_vucsr_cg/cp_hcsr_inaccessible
+
+  - names:
+      - norm:csr:hedelegh:reg
+      - norm:csr:htimedeltah:reg
+      - norm:csr:henvcfgh:reg
+    coverpoint:
+      - H_mcsr_cg/cp_hcsr_access
+      - H_mcsr_cg/cp_hcsrwalk
+      - H_hscsr_cg/cp_hcsr_access
+      - H_hscsr_cg/cp_hcsrwalk
+      - H_vscsr_cg/cp_illegalupper
+      - H_ucsr_cg/cp_illegalupper
+      - H_vucsr_cg/cp_illegalupper
+
+  - names:
+      - norm:csr:vsstatus:reg
+      - norm:csrsvsip_vsie:reg
+      - norm:csr:vstval:reg
+      - norm:csr:vstvec:reg
+      - norm:csr:vsscratch:reg
+      - norm:csr:vsepc:reg
+      - norm:csr:vscause:reg
+      - norm:csr:vsatp:reg
+    coverpoint:
+      - H_mcsr_cg/cp_hcsr_access
+      - H_mcsr_cg/cp_replica
+      - H_hscsr_cg/cp_hcsr_access
+      - H_hscsr_cg/cp_hcsrwalk
+      - H_hscsr_cg/cp_replica
+      - H_vscsr_cg/cp_hcsr_virtualinstructionfault
+      - H_vscsr_cg/cp_replica
+      - H_vucsr_cg/cp_scsr
+
+  - name: norm:ext:H:vscsrs-m-hs-perm
+    coverpoint:
+      - H_mcsr_cg/cp_hcsr_access
+      - H_hscsr_cg/cp_hcsr_access
+      - H_hscsr_cg/cp_replica
+
+  - name: norm:ext:H:vscsrs-v0
+    coverpoint:
+      - H_mcsr_cg/cp_replica
+      - H_hscsr_cg/cp_replica
+      - H_vscsr_cg/cp_replica
+
+  - name: norm:ext:H:csrs-hs-not-vs
+    coverpoint:
+      - H_vscsr_cg/cp_hcsr_virtualinstructionfault
+      - H_vscsr_cg/cp_hcsr_inaccessible
+
+  - name: norm:ext:H:vscsrs-vs-perm
+    coverpoint:
+      - H_vscsr_cg/cp_hcsr_virtualinstructionfault
+      - H_vscsr_cg/cp_replica
+      - H_vucsr_cg/cp_scsr
+
+  - name: norm:ext:H:scsrs-nomatch
+    coverpoint:
+      - H_vscsr_cg/cp_nonreplica
+      - H_ucsr_cg/cp_scsr
+      - H_vucsr_cg/cp_scsr
+
+  - name: norm:csrfld:hstatus:vgein:op
+    coverpoint:
+      - H_hscsr_cg/cp_hstatus_vgein
+
+  - name: norm:ext:Zicsr:higher-priv
+    coverpoint:
+      - H_mcsr_cg/cp_hcsr_access
+      - H_hscsr_cg/cp_hcsr_access
+
+  - name: norm:ext:Zicsr:rw
+    coverpoint:
+      - H_mcsr_cg/cp_hcsr_access
+      - H_mcsr_cg/cp_hcsrwalk
+      - H_hscsr_cg/cp_hcsr_access
+      - H_hscsr_cg/cp_hcsrwalk
+
+  - name: norm:ext:Zicsr:insufficient-privlege
+    coverpoint:
+      - H_hscsr_cg/cp_hcsr_inaccessible
+      - H_vscsr_cg/cp_hcsr_inaccessible
+      - H_ucsr_cg/cp_hcsr_inaccessible
+      - H_ucsr_cg/cp_illegalupper
+      - H_ucsr_cg/cp_scsr
+      - H_vucsr_cg/cp_hcsr_inaccessible
+      - H_vucsr_cg/cp_illegalupper
+      - H_vucsr_cg/cp_scsr
+
+  - name: H_vscause_wlrl
+    coverpoint:
+      - H_hscsr_cg/cp_vscause_write
+
+  - name: H_tvm_satp_hgatp_trap
+    coverpoint:
+      - H_hscsr_cg/cp_tvm
+      - H_vscsr_cg/cp_tvm
+
+  - name: H_vsstatus_sd_fs_vs
+    coverpoint:
+      - H_vscsr_cg/cp_vsstatus_sd_write
+
+  - name: H_hlv_basic_load
+    coverpoint:
+      - H_inst_cg/cp_hlv
+
+  - name: H_hlvx_basic_load
+    coverpoint:
+      - H_inst_cg/cp_hlvx
+
+  - name: H_hsv_basic_store
+    coverpoint:
+      - H_inst_cg/cp_hsv
+
+  - name: H_hfence_basic_fence
+    coverpoint:
+      - H_inst_cg/cp_hfence
+
+  - name: H_sfence_vma_tvm_vtvm
+    coverpoint:
+      - H_inst_cg/cp_sfence
+
+  - name: H_mret_m_mpv
+    coverpoint:
+      - H_inst_cg/cp_mret_m
+
+  - name: H_mret_illegal_below_m
+    coverpoint:
+      - H_inst_cg/cp_mret_illegal
+
+  - name: H_sret_illegal_vu
+    coverpoint:
+      - H_inst_cg/cp_sret_illegal
+
+  - name: H_sret_m_spv
+    coverpoint:
+      - H_inst_cg/cp_sret_m
+
+  - name: H_sret_hs_spv
+    coverpoint:
+      - H_inst_cg/cp_sret_hs
+
+  - name: H_sret_vs_vtsr
+    coverpoint:
+      - H_inst_cg/cp_sret_vs
