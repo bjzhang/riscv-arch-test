@@ -87,6 +87,9 @@ exclude_extensions:
   # (https://gitlab.com/qemu-project/qemu/-/issues/4620). QEMU has further hypervisor bugs
   # filed the same day, 4611 through 4617, so this exclusion will be needed for a while.
   - H
+  # HSm: hgeie GEILEN disagrees with the max configurations on the virt machine;
+  #      hgatp PPN[1:0] and vsepc[0] readbacks violate architectural requirements.
+  - HSm
   - Sv_H
   - Sv_HSm
   - Sv_HZicbo

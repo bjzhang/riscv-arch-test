@@ -85,6 +85,9 @@
     },
     "hstatus": {
       "mask": "0x0073f3c0" // VSBE read-only zero: VS-mode is little-endian (VS_MODE_ENDIANNESS)
+    },
+    "hedelegh": {
+      "exists": true
     }
   },
 
