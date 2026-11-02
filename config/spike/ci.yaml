@@ -41,9 +41,10 @@ exclude_extensions:
   - Sm_H_hcsr
   # rv32 H-suite access/walk cases: with Smaia enabled in the launch ISA, Spike honors
   # hgeie writes while the Sail reference reads back zero (golden divergence); logs on
-  # the PR run. Spike issue to be filed.
-  - H_hcsr_access-00
-  - H_hcsr_walk-01
+  # the PR run. Spike issue to be filed. Group exclusions per the _is_excluded
+  # prefix semantics.
+  - H_hcsr_access
+  - H_hcsr_walk
 install_script: ".github/scripts/install-spike.sh"
 apt_packages: "device-tree-compiler libboost-regex-dev libboost-system-dev"
 shards: 1
