@@ -115,6 +115,22 @@ covergroup H_hscsr_cg with function sample(ins_t ins);
         `endif
     }
 
+    // Immediate-form access to each H CSR.  uimm = 0 suppresses the write of CSRRSI and CSRRCI, which
+    // read, while CSRRWI writes 0; uimm = 5 sets, clears or writes bits 0 and 2
+    csrimmops : coverpoint ins.current.insn {
+        wildcard bins csrrwi = {CSRRWI};
+        wildcard bins csrrsi = {CSRRSI};
+        wildcard bins csrrci = {CSRRCI};
+    }
+    zimm05 : coverpoint ins.current.insn[19:15] {
+        bins zero = {5'd0};
+        bins five = {5'd5};
+    }
+    cp_hcsr_imm:            cross priv_mode_hs, hcsrname, csrimmops, zimm05;
+    cp_hcsr_imm_zero:       cross priv_mode_hs, hcsrname_zero, csrimmops, zimm05;
+    cp_hcsr_imm_masked:     cross priv_mode_hs, hcsrname_masked, csrimmops, zimm05;
+    cp_hcsr_imm_ro:         cross priv_mode_hs, hgeip, csrimmops, zimm05;
+
     // hgatp and vsatp: walk a 1 and a 0 through the non-MODE bits with a legal MODE
     atpname : coverpoint ins.current.insn[31:20] {
         `ifdef UDB_MXLEN_64

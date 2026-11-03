@@ -53,6 +53,21 @@ coverpoints:
       - vscause_sz_acc_op
       - vsatp_sz_acc_op
   - name: |-
+      cp_hcsr_imm
+      cp_hcsr_imm_zero
+      cp_hcsr_imm_masked
+    goal: The immediate CSR forms access each H-extension CSR, and their uimm = 0 writes differ by operation
+    description: |-
+      In HS-mode, execute CSRRWI, CSRRSI and CSRRCI with uimm 0 and 5 on each {HS/VS} H-Extension CSR, and check that rd receives the old value.
+      With uimm = 0, CSRRSI and CSRRCI suppress the write and read, while CSRRWI writes 0.  With uimm = 5 they set, clear or write bits 0 and 2, and the readback is checked after each write, following the readback discipline of cp_hcsr_access: cp_hcsr_imm_zero and cp_hcsr_imm_masked check the readback of a CSR that need only hold zero or holds an address only after CSRRWI 0.
+    expectation: rd holds the old value; the suppressed reads leave the CSR unchanged; CSRRWI 0 writes 0 despite the zero immediate; each write updates the checked fields
+    bins: 6-10 * (14-17 + 9-11)
+  - name: cp_hcsr_imm_ro
+    goal: Read-only hgeip rejects immediate-form writes, including CSRRWI 0, while write-suppressed operations read
+    description: In HS-mode, execute each immediate form with uimm 0 and 5 on read-only hgeip.  CSRRSI and CSRRCI with uimm = 0 suppress the write and read; CSRRWI with any uimm, and CSRRSI and CSRRCI with uimm = 5, attempt a write, as does CSRRS with a non-x0 rs1 that holds zero.
+    expectation: CSRRSI and CSRRCI with uimm = 0 read hgeip; every write attempt raises illegal instruction and leaves rd unchanged
+    bins: 8 forms
+  - name: |-
       cp_hcsrwalk
       cp_hcsrwalk_masked
     goal: Exercise each bit of H-extension CSRs
@@ -560,6 +575,10 @@ coverpoints:
     bins: "1"
     notes: "spec: If the floating-point unit status field mstatus.FS is Off then any attempt to execute a vector floating-point instruction will raise an illegal instruction exception."
   - heading: Not tested
+  - goal: vscause is not in the cp_hcsr_imm and cp_hcsr_oldvalue sweeps
+    status: Not tested
+    notes: |-
+      vscause is WLRL and many exception and interrupt codes are reserved, so an immediate operand can encode an illegal value.  As with cp_hcsr_access and cp_hcsrwalk, which also leave it out, it is written only with legal values, by cp_vscause_write_*.
   - goal: hstatus.VSBE sets the endianness of VS-mode accesses
     status: Not tested
     rules:

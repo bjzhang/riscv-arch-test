@@ -125,6 +125,115 @@ def _vgein_tests(test_data: TestData) -> list[str]:
     return lines
 
 
+def _load_mask(mask_reg: int, mask: int) -> list[str]:
+    """Load a readback mask, truncating it to 32 bits on RV32."""
+    mask32 = mask & 0xFFFFFFFF
+    if mask32 != mask:
+        return [
+            "#if __riscv_xlen == 64",
+            f"LI(x{mask_reg}, {mask:#x})",
+            "#else",
+            f"LI(x{mask_reg}, {mask32:#x})    # upper bits of {mask:#x} are ignored",
+            "#endif",
+        ]
+    return [f"LI(x{mask_reg}, {mask})"]
+
+
+def _imm_tests(test_data: TestData, test_chunks: list[TestChunk], csrs: list[HCsr]) -> None:
+    """Immediate-form CSR operations on each H CSR in HS-mode (cp_hcsr_imm) and on read-only hgeip (cp_hcsr_imm_ro).
+
+    uimm = 0 suppresses the write of CSRRSI and CSRRCI, so they read, while CSRRWI writes 0.  uimm = 5
+    sets, clears or writes bits 0 and 2.  The readback is checked after each write that is not to a CSR
+    that need only hold zero or holds a virtual address, whose WARL readbacks the access tests leave
+    unchecked.  On hgeip, whose register-form writes cp_hcsr_access_ro shows trap, the immediate forms
+    separate the suppressed writes (CSRRSI and CSRRCI with uimm = 0) from the write attempts that must
+    trap (CSRRWI with any uimm, CSRRSI and CSRRCI with uimm != 0), and CSRRS with a non-x0 register
+    that holds zero attempts a write and traps, unlike CSRRS with rs1 = x0.
+    """
+    first = True
+    for csr in csrs:
+        tc = test_data.new_test_chunk(test_chunks, "hcsr_imm" if first else None)
+        if first:
+            tc.section_header = comment_banner(
+                "cp_hcsr_imm, cp_hcsr_imm_zero, cp_hcsr_imm_masked, cp_hcsr_imm_ro",
+                "In HS-mode, access each H CSR with each immediate form and uimm 0 and 5, and read the CSR\n"
+                "back after each write.  Access read-only hgeip with each immediate form and with CSRRS of a\n"
+                "non-x0 register that holds zero",
+            )
+            first = False
+        orig_reg, old_reg, rd, check_reg, mask_reg = test_data.int_regs.get_registers(5)
+        coverpoint = "cp_hcsr_imm_zero" if csr.zero else "cp_hcsr_imm_masked" if csr.masked else "cp_hcsr_imm"
+        lines = [
+            f"# Immediate-form CSR access tests for {csr.name}",
+            f"csrr x{orig_reg}, {csr.operand}    # Save CSR",
+            *(_load_mask(mask_reg, csr.mask) if csr.mask is not None else []),
+        ]
+        for mnemonic, uimm in (
+            ("csrrsi", 0),
+            ("csrrci", 0),
+            ("csrrwi", 0),
+            ("csrrsi", 5),
+            ("csrrci", 5),
+            ("csrrwi", 5),
+        ):
+            writes = mnemonic == "csrrwi" or uimm != 0
+            body = [
+                f"csrr x{old_reg}, {csr.operand}",
+                test_data.add_testcase(f"{csr.name}_{mnemonic}{uimm}", coverpoint, HS_CG),
+                f"{mnemonic} x{rd}, {csr.operand}, {uimm}",
+                f"xor x{rd}, x{rd}, x{old_reg}",
+                write_sigupd(rd, test_data),
+            ]
+            lines.extend(body)
+            # The readback after a write follows the discipline of cp_hcsr_access: a CSR that need
+            # only hold zero or holds an address legalizes bits 0 and 2 in a WARL way, so only
+            # CSRRWI 0, which writes 0, has a checked readback on those CSRs
+            if writes and (uimm == 0 or not (csr.zero or csr.vaddr)):
+                lines.extend(
+                    [
+                        test_data.add_testcase(f"{csr.name}_{mnemonic}{uimm}_state", coverpoint, HS_CG),
+                        gen_csr_read_sigupd(
+                            check_reg, (csr.operand, csr.mask), test_data, mask_reg if csr.mask is not None else None
+                        ),
+                    ]
+                )
+        lines.append(f"csrw {csr.operand}, x{orig_reg}    # Restore CSR")
+        tc.code.extend(gated([*csr.setup, *lines, *csr.restore], csr.gate))
+        test_data.int_regs.return_registers([orig_reg, old_reg, rd, check_reg, mask_reg])
+
+    # Read-only hgeip: suppressed writes read, write attempts trap
+    tc = test_data.new_test_chunk(test_chunks)
+    rd, reg = test_data.int_regs.get_registers(2)
+    lines = ["# Immediate-form and suppressed-write access tests for hgeip"]
+    for mnemonic, uimm, traps in (
+        ("csrrsi", 0, False),
+        ("csrrci", 0, False),
+        ("csrrwi", 0, True),
+        ("csrrsi", 5, True),
+        ("csrrci", 5, True),
+        ("csrrwi", 5, True),
+    ):
+        body = [test_data.add_testcase(f"hgeip_{mnemonic}{uimm}", "cp_hcsr_imm_ro", HS_CG)]
+        if traps:
+            body.extend([f"LI(x{rd}, 42)    # known value; the trapping {mnemonic} must leave it unchanged"])
+        body.extend([f"{mnemonic} x{rd}, hgeip, {uimm}", write_sigupd(rd, test_data)])
+        lines.extend(body)
+    lines.extend(
+        [
+            test_data.add_testcase("hgeip_csrrs_x0", "cp_hcsr_imm_ro", HS_CG),
+            f"csrrs x{rd}, hgeip, x0    # rs1 = x0 suppresses the write, so the read succeeds",
+            write_sigupd(rd, test_data),
+            f"LI(x{reg}, 0)    # a non-x0 register that holds zero",
+            test_data.add_testcase("hgeip_csrrs_reg0", "cp_hcsr_imm_ro", HS_CG),
+            f"LI(x{rd}, 42)    # known value; the trapping csrrs must leave it unchanged",
+            f"csrrs x{rd}, hgeip, x{reg}    # writes zero bits, but still attempts a write",
+            write_sigupd(rd, test_data),
+        ]
+    )
+    tc.code.extend(lines)
+    test_data.int_regs.return_registers([rd, reg])
+
+
 # S CSRs that the HS-mode trap handler needs (stvec, sscratch) or that a trap into HS-mode rewrites
 TRAP_HANDLER_S_CSRS = ("stvec", "sscratch", "sepc", "scause", "stval")
 
@@ -404,6 +513,8 @@ def make_h(test_data: TestData) -> list[TestChunk]:
     """Generate tests for the H hypervisor testsuite."""
     test_chunks: list[TestChunk] = []
     hcsr_tests(test_data, test_chunks, [*H_HS_CSRS, *H_VS_CSRS], HS_CG)
+
+    _imm_tests(test_data, test_chunks, [*H_HS_CSRS, *H_VS_CSRS])
 
     tc = test_data.new_test_chunk(test_chunks, "hscsr_fields")
     tc.code.extend(
