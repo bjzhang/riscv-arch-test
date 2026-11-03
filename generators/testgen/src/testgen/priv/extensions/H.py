@@ -234,6 +234,87 @@ def _imm_tests(test_data: TestData, test_chunks: list[TestChunk], csrs: list[HCs
     test_data.int_regs.return_registers([rd, reg])
 
 
+def _oldvalue_tests(test_data: TestData, test_chunks: list[TestChunk], csrs: list[HCsr]) -> None:
+    """CSR operations return the old value in rd, and rs1 = x0 suppresses the CSRRW write (cp_hcsr_oldvalue).
+
+    Each CSR holds a known value: all 1s, the checked fields of a masked CSR, a valid code address for
+    an address CSR, or 0 for a CSR that need only hold zero.  CSRRW, CSRRS and CSRRC with a non-x0 rs1
+    that holds zero, and CSRRW with rs1 = x0, must all return it.  A CSRRW with rs1 = x0 leaves the CSR
+    unchanged while a CSRRWI with uimm = 0 writes 0 (cp_hcsr_imm), so their readbacks are checked side
+    by side.
+    """
+    first = True
+    for csr in csrs:
+        tc = test_data.new_test_chunk(test_chunks, "hcsr_oldvalue" if first else None)
+        if first:
+            tc.section_header = comment_banner(
+                "cp_hcsr_oldvalue, cp_hcsr_oldvalue_zero, cp_hcsr_oldvalue_masked",
+                "In HS-mode, hold a known value in each H CSR and check that every CSR operation returns it in\n"
+                "rd.  A CSRRW with rs1 = x0 leaves the CSR unchanged, while a CSRRWI with uimm = 0 writes 0",
+            )
+            first = False
+        regs = test_data.int_regs.get_registers(5)
+        orig_reg, rd, val_reg, zero_reg, check_reg = regs
+        mask_reg: int | None = None
+        mask_lines: list[str] = []
+        if csr.mask is not None:
+            mask_reg = test_data.int_regs.get_register()
+            mask_lines = _load_mask(mask_reg, csr.mask)
+        coverpoint = (
+            "cp_hcsr_oldvalue_zero" if csr.zero else "cp_hcsr_oldvalue_masked" if csr.masked else "cp_hcsr_oldvalue"
+        )
+        lines = [
+            f"# Old-value checks for {csr.name}",
+            f"csrr x{orig_reg}, {csr.operand}    # Save CSR",
+            *mask_lines,
+            f"LI(x{zero_reg}, 0)",
+        ]
+        if csr.zero:
+            lines.append(f"LI(x{val_reg}, 0)")
+        elif csr.vaddr:
+            lines.append(f"auipc x{val_reg}, 0    # a valid code address, which the CSR keeps")
+        elif csr.masked:
+            lines.append(f"mv x{val_reg}, x{mask_reg}    # every checked field")
+        else:
+            lines.append(f"LI(x{val_reg}, -1)")
+        lines.extend(
+            [
+                f"csrw {csr.operand}, x{val_reg}",
+                f"csrr x{val_reg}, {csr.operand}    # the value actually held, after WARL",
+            ]
+        )
+        for name, instr in (
+            ("csrrw", f"csrrw x{rd}, {csr.operand}, x{orig_reg}"),
+            ("csrrs_reg0", f"csrrs x{rd}, {csr.operand}, x{zero_reg}"),
+            ("csrrc_reg0", f"csrrc x{rd}, {csr.operand}, x{zero_reg}"),
+            ("csrrw_x0", f"csrrw x{rd}, {csr.operand}, x0"),
+        ):
+            lines.extend(
+                [
+                    f"csrw {csr.operand}, x{val_reg}",
+                    test_data.add_testcase(f"{csr.name}_{name}", coverpoint, HS_CG),
+                    instr,
+                    f"xor x{rd}, x{rd}, x{val_reg}",
+                    write_sigupd(rd, test_data),
+                ]
+            )
+        lines.extend(
+            [
+                test_data.add_testcase(f"{csr.name}_nowrite", coverpoint, HS_CG),
+                f"csrrw x{rd}, {csr.operand}, x0    # rs1 = x0 suppresses the write",
+                gen_csr_read_sigupd(check_reg, (csr.operand, csr.mask), test_data, mask_reg),
+                test_data.add_testcase(f"{csr.name}_write0", coverpoint, HS_CG),
+                f"csrrwi x{rd}, {csr.operand}, 0    # uimm = 0 is not suppressed",
+                gen_csr_read_sigupd(check_reg, (csr.operand, csr.mask), test_data, mask_reg),
+                f"csrw {csr.operand}, x{orig_reg}    # Restore CSR",
+            ]
+        )
+        tc.code.extend(gated([*csr.setup, *lines, *csr.restore], csr.gate))
+        test_data.int_regs.return_registers(regs)
+        if mask_reg is not None:
+            test_data.int_regs.return_register(mask_reg)
+
+
 # S CSRs that the HS-mode trap handler needs (stvec, sscratch) or that a trap into HS-mode rewrites
 TRAP_HANDLER_S_CSRS = ("stvec", "sscratch", "sepc", "scause", "stval")
 
@@ -515,6 +596,7 @@ def make_h(test_data: TestData) -> list[TestChunk]:
     hcsr_tests(test_data, test_chunks, [*H_HS_CSRS, *H_VS_CSRS], HS_CG)
 
     _imm_tests(test_data, test_chunks, [*H_HS_CSRS, *H_VS_CSRS])
+    _oldvalue_tests(test_data, test_chunks, [*H_HS_CSRS, *H_VS_CSRS])
 
     tc = test_data.new_test_chunk(test_chunks, "hscsr_fields")
     tc.code.extend(

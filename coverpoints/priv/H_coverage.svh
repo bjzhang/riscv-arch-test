@@ -131,6 +131,22 @@ covergroup H_hscsr_cg with function sample(ins_t ins);
     cp_hcsr_imm_masked:     cross priv_mode_hs, hcsrname_masked, csrimmops, zimm05;
     cp_hcsr_imm_ro:         cross priv_mode_hs, hgeip, csrimmops, zimm05;
 
+    // rd receives the old value; rs1 = x0 suppresses the CSRRW write, and a non-x0 rs1 holding zero
+    // still performs it
+    csrregops : coverpoint ins.current.insn {
+        wildcard bins csrrw      = {CSRRW} iff (ins.current.insn[19:15] != 5'd0);
+        wildcard bins csrrs_reg0 = {CSRRS} iff (ins.current.insn[19:15] != 5'd0);
+        wildcard bins csrrc_reg0 = {CSRRC} iff (ins.current.insn[19:15] != 5'd0);
+        wildcard bins csrrw_x0   = {CSRRW} iff (ins.current.insn[19:15] == 5'd0);
+    }
+    nonzerord : coverpoint ins.current.insn[11:7] {
+        type_option.weight = 0;
+        bins nonzero = { [1:$] }; // rd != 0
+    }
+    cp_hcsr_oldvalue:        cross priv_mode_hs, hcsrname, csrregops, nonzerord;
+    cp_hcsr_oldvalue_zero:   cross priv_mode_hs, hcsrname_zero, csrregops, nonzerord;
+    cp_hcsr_oldvalue_masked: cross priv_mode_hs, hcsrname_masked, csrregops, nonzerord;
+
     // hgatp and vsatp: walk a 1 and a 0 through the non-MODE bits with a legal MODE
     atpname : coverpoint ins.current.insn[31:20] {
         `ifdef UDB_MXLEN_64

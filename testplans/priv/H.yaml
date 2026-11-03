@@ -68,6 +68,16 @@ coverpoints:
     expectation: CSRRSI and CSRRCI with uimm = 0 read hgeip; every write attempt raises illegal instruction and leaves rd unchanged
     bins: 8 forms
   - name: |-
+      cp_hcsr_oldvalue
+      cp_hcsr_oldvalue_zero
+      cp_hcsr_oldvalue_masked
+    goal: CSR operations return the old value in rd, and rs1 = x0 suppresses the CSRRW write while CSRRWI 0 writes
+    description: |-
+      In HS-mode, hold a known value in each {HS/VS} H-Extension CSR — all 1s, the checked fields of a masked CSR, a valid code address for vsepc and vstval, or 0 for the CSRs of cp_hcsr_access_zero — then execute CSRRW, CSRRS and CSRRC with a non-x0 rs1 holding zero and CSRRW with rs1 = x0, checking that rd receives the old value.
+      The readbacks are then checked side by side: a CSRRW with rs1 = x0 leaves the CSR unchanged, while a CSRRWI with uimm = 0 writes 0.
+    expectation: rd holds the old value after every operation; the CSR is unchanged after the suppressed write and holds 0 after CSRRWI 0
+    bins: 6 * (14-17 + 9-11)
+  - name: |-
       cp_hcsrwalk
       cp_hcsrwalk_masked
     goal: Exercise each bit of H-extension CSRs
