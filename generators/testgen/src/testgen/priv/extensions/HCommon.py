@@ -259,6 +259,48 @@ def hcsr_tests(
         tc.code.extend(_atp_walk_test(test_data, csr, covergroup))
 
 
+def csr_write_denied_tests(
+    test_data: TestData,
+    test_chunks: list[TestChunk],
+    covergroup: str,
+    csrs: list[HCsr],
+    chunk_name: str,
+    description: str,
+    mode: str | None = None,
+    csrs_per_chunk: int = 1,
+) -> None:
+    """Attempt to write each CSR in csrs; every write must raise illegal or virtual instruction.
+
+    Unlike csr_ro_write_tests, which writes user read-only CSR numbers, this writes CSRs that the mode
+    cannot access at all, so the write raises illegal instruction from U-mode and virtual instruction
+    from VU-mode.  Each chunk of csrs_per_chunk CSRs enters mode ("U" or "VU") from HS-mode first, if
+    mode is given.
+    """
+    coverpoint = "cp_csr_write_denied"
+    tc = test_data.new_test_chunk(test_chunks, chunk_name)
+    tc.section_header = comment_banner(coverpoint, description)
+    for index in range(0, len(csrs), csrs_per_chunk):
+        tc = test_data.new_test_chunk(test_chunks, chunk_name)
+        temp_reg, read_reg = test_data.int_regs.get_registers(2)
+        for csr in csrs[index : index + csrs_per_chunk]:
+            tc.code.extend(
+                gated(
+                    [
+                        test_data.add_testcase(csr.name, coverpoint, covergroup),
+                        f"LI(x{temp_reg}, -1)          # x{temp_reg} = all 1s",
+                        f"LI(x{read_reg}, 42)           # known value; the trapping csrrw must leave it unchanged",
+                        f"csrrw x{read_reg}, {csr.operand}, x{temp_reg}    # attempt to write {csr.name}",
+                        write_sigupd(read_reg, test_data),
+                        "",
+                    ],
+                    csr.gate,
+                )
+            )
+        if mode is not None:
+            tc.code[:] = [f"RVTEST_TSBI_GOTO_{mode}MODE", *tc.code, "RVTEST_TSBI_GOTO_SMODE"]
+        test_data.int_regs.return_registers([temp_reg, read_reg])
+
+
 def _atp_walk_test(test_data: TestData, csr: str, covergroup: str) -> list[str]:
     """Walk a 1 and a 0 through the non-MODE bits of hgatp or vsatp with MODE = Sv39(x4) or Sv32(x4).
 

@@ -551,6 +551,55 @@ covergroup H_vucsr_cg with function sample(ins_t ins);
 
     cp_csr_insufficient_priv: cross priv_mode_vu, csrr, csr_nonuser, nonzerord;
     cp_csr_ro:                cross priv_mode_vu, csrw, csr_uro;
+
+    // Every write to an HS or VS H CSR raises virtual instruction in VU-mode, and illegal instruction
+    // in U-mode (H_inst_cg)
+    csrrw_denied : coverpoint ins.current.insn {
+        wildcard bins csrrw = {CSRRW};
+    }
+    hsvscsrname_vu : coverpoint ins.current.insn[31:20] {
+        bins hstatus    = {CSR_HSTATUS};
+        bins hedeleg    = {CSR_HEDELEG};
+        bins hideleg    = {CSR_HIDELEG};
+        bins hie        = {CSR_HIE};
+        bins hcounteren = {CSR_HCOUNTEREN};
+        bins hgeie      = {CSR_HGEIE};
+        bins henvcfg    = {CSR_HENVCFG};
+        bins htval      = {CSR_HTVAL};
+        bins hip        = {CSR_HIP};
+        bins hvip       = {CSR_HVIP};
+        bins htinst     = {CSR_HTINST};
+        bins hgatp      = {CSR_HGATP};
+        bins hgeip      = {CSR_HGEIP};
+        bins vsstatus   = {CSR_VSSTATUS};
+        bins vsie       = {CSR_VSIE};
+        bins vstval     = {CSR_VSTVAL};
+        bins vsip       = {CSR_VSIP};
+        bins vstvec     = {CSR_VSTVEC};
+        bins vsscratch  = {CSR_VSSCRATCH};
+        bins vsepc      = {CSR_VSEPC};
+        bins vscause    = {CSR_VSCAUSE};
+        bins vsatp      = {CSR_VSATP};
+        `ifdef ZICNTR_SUPPORTED
+            bins htimedelta = {CSR_HTIMEDELTA};
+        `endif
+        `ifdef SSTC_SUPPORTED
+            bins vstimecmp = {CSR_VSTIMECMP};
+        `endif
+        `ifdef UDB_MXLEN_32
+            `ifdef SM1P13P0_OR_LATER_SUPPORTED
+                bins hedelegh = {CSR_HEDELEGH};
+            `endif
+            `ifdef ZICNTR_SUPPORTED
+                bins htimedeltah = {CSR_HTIMEDELTAH};
+            `endif
+            bins henvcfgh = {CSR_HENVCFGH};
+            `ifdef SSTC_SUPPORTED
+                bins vstimecmph = {CSR_VSTIMECMPH};
+            `endif
+        `endif
+    }
+    cp_csr_write_denied: cross priv_mode_vu, csrrw_denied, hsvscsrname_vu;
 endgroup
 
 covergroup H_inst_cg with function sample(ins_t ins);
@@ -624,6 +673,55 @@ covergroup H_inst_cg with function sample(ins_t ins);
         wildcard bins hfence_gvma = {HFENCE_GVMA};
     }
     cp_hfence:        cross priv_mode_hs_vs_u_vu, hfence;
+
+    // Writes to the HS and VS H CSRs from U-mode raise illegal instruction, as the reads in the U
+    // suite's cp_csr_insufficient_priv do for every non-user CSR number
+    csrrw_denied : coverpoint ins.current.insn {
+        wildcard bins csrrw = {CSRRW};
+    }
+    hsvscsrname_u : coverpoint ins.current.insn[31:20] {
+        bins hstatus    = {CSR_HSTATUS};
+        bins hedeleg    = {CSR_HEDELEG};
+        bins hideleg    = {CSR_HIDELEG};
+        bins hie        = {CSR_HIE};
+        bins hcounteren = {CSR_HCOUNTEREN};
+        bins hgeie      = {CSR_HGEIE};
+        bins henvcfg    = {CSR_HENVCFG};
+        bins htval      = {CSR_HTVAL};
+        bins hip        = {CSR_HIP};
+        bins hvip       = {CSR_HVIP};
+        bins htinst     = {CSR_HTINST};
+        bins hgatp      = {CSR_HGATP};
+        bins hgeip      = {CSR_HGEIP};
+        bins vsstatus   = {CSR_VSSTATUS};
+        bins vsie       = {CSR_VSIE};
+        bins vstval     = {CSR_VSTVAL};
+        bins vsip       = {CSR_VSIP};
+        bins vstvec     = {CSR_VSTVEC};
+        bins vsscratch  = {CSR_VSSCRATCH};
+        bins vsepc      = {CSR_VSEPC};
+        bins vscause    = {CSR_VSCAUSE};
+        bins vsatp      = {CSR_VSATP};
+        `ifdef ZICNTR_SUPPORTED
+            bins htimedelta = {CSR_HTIMEDELTA};
+        `endif
+        `ifdef SSTC_SUPPORTED
+            bins vstimecmp = {CSR_VSTIMECMP};
+        `endif
+        `ifdef UDB_MXLEN_32
+            `ifdef SM1P13P0_OR_LATER_SUPPORTED
+                bins hedelegh = {CSR_HEDELEGH};
+            `endif
+            `ifdef ZICNTR_SUPPORTED
+                bins htimedeltah = {CSR_HTIMEDELTAH};
+            `endif
+            bins henvcfgh = {CSR_HENVCFGH};
+            `ifdef SSTC_SUPPORTED
+                bins vstimecmph = {CSR_VSTIMECMPH};
+            `endif
+        `endif
+    }
+    cp_csr_write_denied: cross priv_mode_u, csrrw_denied, hsvscsrname_u;
 
     // hstatus.VTVM = 1 makes sfence.vma and satp accesses raise virtual instruction in VS-mode, but does not trap
     // hfence.vvma in HS-mode.  mstatus.TVM needs M-mode, so it is in Sm_H.

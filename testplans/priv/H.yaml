@@ -221,7 +221,17 @@ coverpoints:
     description: In VU-mode, attempt to write all 1s to each CSR number from 0xC00 to 0xCFF, as U_ucsr_cg/cp_csr_ro in U-mode
     expectation: Illegal instruction fault, and rd is unchanged
     bins: 256 CSRs
+  - name: cp_csr_write_denied
+    goal: H CSRs cannot be written from VU-mode
+    description: In VU-mode, attempt to write all 1s to each {HS/VS} H-Extension CSR.  The read attempts are in cp_csr_insufficient_priv, whose numeric sweep includes the H CSRs, and cp_csr_ro writes only the user read-only numbers, so the write form was untested
+    expectation: Virtual instruction fault, and rd is unchanged
+    bins: 24-27 CSRs
   - heading: Instructions (H_inst_cg)
+  - name: cp_csr_write_denied
+    goal: H CSRs cannot be written from U-mode
+    description: In U-mode, attempt to write all 1s to each {HS/VS} H-Extension CSR, as cp_hfence runs hfence in U-mode.  The U suite's cp_csr_insufficient_priv covers the reads of every non-user CSR number, including the H CSRs, but not the write form
+    expectation: Illegal instruction fault, and rd is unchanged
+    bins: 24-27 CSRs
   - name: cp_hlv
     goal: Basic load
     description: "Set up non-identity G and VS-stage page tables (Sv39x4 and Sv39, or Sv32x4 and Sv32). With hstatus.HU = 1, in {HS, U}: Write a value with the sign bit of every access size set to scratch. hlv.b, hlv.bu, hlv.h,  hlv.hu, hlv.w from scratch.  For rv64, also test hlv.wu, hlv.d.  Random source and destination registers."

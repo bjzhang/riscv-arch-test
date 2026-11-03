@@ -24,6 +24,7 @@ from testgen.priv.extensions.HCommon import (
     REPLICA_ATP_GATE,
     REPLICAS,
     HCsr,
+    csr_write_denied_tests,
     guest_page_fault_tests,
     hcsr_tests,
     hlv_tests,
@@ -456,6 +457,30 @@ def _vu_csr_tests(test_data: TestData, test_chunks: list[TestChunk]) -> None:
     csr_ro_write_tests(
         test_data, test_chunks, VU_CG, USER_RO_CSR_RANGES, "vucsr_ro", mode="VU", csrs_per_chunk=CSRS_PER_CHUNK
     )
+    csr_write_denied_tests(
+        test_data,
+        test_chunks,
+        VU_CG,
+        HS_VS_CSRS,
+        "vucsr_write",
+        "In VU-mode, attempt to write each HS and VS H CSR.  Should throw virtual instruction",
+        mode="VU",
+        csrs_per_chunk=CSRS_PER_CHUNK,
+    )
+
+
+def _u_csr_tests(test_data: TestData, test_chunks: list[TestChunk]) -> None:
+    """Write attempts from U-mode, for the H CSRs whose reads the U suite's CSR sweep covers."""
+    csr_write_denied_tests(
+        test_data,
+        test_chunks,
+        INST_CG,
+        HS_VS_CSRS,
+        "ucsr_write",
+        "In U-mode, attempt to write each HS and VS H CSR.  Should throw illegal instruction",
+        mode="U",
+        csrs_per_chunk=CSRS_PER_CHUNK,
+    )
 
 
 def _xret_tests(test_data: TestData) -> list[str]:
@@ -612,6 +637,7 @@ def make_h(test_data: TestData) -> list[TestChunk]:
 
     _vs_csr_tests(test_data, test_chunks)
     _vu_csr_tests(test_data, test_chunks)
+    _u_csr_tests(test_data, test_chunks)
 
     tc = test_data.new_test_chunk(test_chunks, "inst")
     tc.code.extend(
